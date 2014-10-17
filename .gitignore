@@ -1,0 +1,1656 @@
+
+
+       PROGRAM-ID. RMIAUDS0.
+
+      ******************************************************************
+      *                         RMIAUDS0                               *
+      *      Upsell From Declined Services Search Criteria Screen      *
+      *                                                                *
+      *    This screen is the search input pane for the Upsell From    *
+      *    Declined Services Screen.                                   *
+      *                                                                *
+      *    After entering report criteria and filters, the Run         *
+      *    Reports function will call the Report Details (RMIAUDS1)    *
+      *    screen lower pane to produce the report.                    *
+      *                                                                *
+      *    These reports and this screen may be accessed from the      *
+      *    Reports Home Page of the RMI Application, by choosing the   *
+      *    report title.  Users may also save the report filters and   *
+      *    column settings by pressing the 'Save' button in the top    *
+      *    right-hand of the parent pane.                              *
+      *                                                                *
+      ******************************************************************
+      * VMOD   DATE   DESCRIPTION (INCLUDE PROJECT#, PMR#, ETC.)       *
+      ******************************************************************
+      * 24.001 040214 SVC 298299 Initial Creation                      *
+      ******************************************************************
+
+       ENVIRONMENT DIVISION.
+
+       DATA DIVISION.
+
+       WORKING-STORAGE SECTION.
+
+      ******************************************************************
+      *    DEFINE PROGRAM NAMES.                                       *
+      ******************************************************************
+       01  FILLER.
+         02  FILLER PIC X(16) VALUE '***PROG-NAMES***'.
+         02  FILLER.
+           05  WS-PROGRAM-NAME                   PIC X(8) VALUE
+               'RMIAUDS0'.
+
+       01  FILLER.
+         02  FILLER PIC X(16) VALUE '***POINTERS*****'.
+         02  FILLER                              COMP.
+           05  WS-FIELD-PTR                      PIC S9(4) VALUE ZERO.
+
+       01  FILLER.
+         02  FILLER PIC X(16) VALUE '***MISC-ALPHA***'.
+         02  FILLER                              VALUE SPACE.
+           05  WS-MAKES-TABLE                    PIC X(48).
+           05  WS-OPERATIONS-TABLE               PIC X(130).
+           05  WS-ORIG-ADVISOR-TABLE             PIC X(100).
+           05  WS-RET-ADVISOR-TABLE              PIC X(100).
+           05  WS-TECHNICIANS-TABLE              PIC X(100).
+           05  WS-GET-RECORDS-FLAG               PIC X.
+               88  WS-GET-RECORDS-YES            VALUE 'Y'.
+           05  WS-DATE-LAST-RUN                  PIC X(10).
+           05  FILLER                            REDEFINES
+               WS-DATE-LAST-RUN.
+               10  WS-DATE-LAST-MM               PIC 9(2).
+               10  FILLER                        PIC X.
+               10  WS-DATE-LAST-DD               PIC 9(2).
+               10  FILLER                        PIC X(3).
+               10  WS-DATE-LAST-YY               PIC 9(2). 
+           05  WS-INVCE-DAYS.
+               10  WS-INVCE-DAYS-NUM             PIC 9(10).
+           05  WS-LAST-DATE-NEEDED               PIC 9(10).
+           05  WS-DATE-LAST-NUM                  PIC 9(5).
+           05  WS-DATE-FROM                      PIC 9(8).
+           05  WS-DATE-FROM-GREG-FLAG            PIC X.
+               88  WS-DATE-FROM-GREG-YES         VALUE 'Y'.
+           05  WS-DATE-TO                        PIC 9(8).
+
+       01  FILLER.
+         02  FILLER PIC X(16) VALUE '***LITERALS*****'.
+         02  FILLER.
+           05  WS-MAKES-LIT                      PIC X(30) VALUE
+               'Makes'.
+           05  WS-OPERATIONS-LIT                 PIC X(30) VALUE
+               'Operations'.
+           05  WS-ORIG-ADVISOR-LIT               PIC X(30) VALUE
+               'Original Advisor'.
+           05  WS-RET-ADVISOR-LIT                PIC X(30) VALUE
+               'Returning Advisor'.
+           05  WS-TECHNICIANS-LIT                PIC X(30) VALUE
+               'Technicians'.
+
+       01  FILLER.
+         02  FILLER PIC X(16) VALUE '***NON-XLATE****'.
+         02  FILLER.
+           05  WS-RMI-LIT                        PIC X(4) VALUE
+               'RMI'.
+
+       01  FILLER.
+         02  FILLER PIC X(16) VALUE '*****ERRORS*****'.
+         02  FILLER.
+           05  ERROR-1001-INVALID-DATE-RANGE     PIC 9(5) VALUE 1001.
+           05  ERROR-1002-INVALID-DATE-FROM      PIC 9(5) VALUE 1002.
+           05  ERROR-1003-VARDATE-SAVES-ONLY     PIC 9(5) VALUE 1003.
+           05  ERROR-1004-VARDATE-SAVES-ONLY     PIC 9(5) VALUE 1004.
+           05  ERROR-1005-INVALID-ELAPSED        PIC 9(5) VALUE 1005.
+
+INCLUDE SYSERR00
+
+      ******************************************************************
+      *    Screen Definition                                           *
+      ******************************************************************
+COPY RMIAUDS0
+         02  FILLER                              REDEFINES
+             RMIAUDS0-DISPLAY-AREA.
+           05  RMIAUDS0-DEPT-SERVICE             PIC X.
+           05  RMIAUDS0-DEPT-BODY                PIC X.
+           05  RMIAUDS0-DEPT-PDI                 PIC X.
+           05  RMIAUDS0-DEPT-ONE-STEP            PIC X.
+           05  RMIAUDS0-ELAPSE-FROM              PIC 9(3).
+           05  RMIAUDS0-ELAPSE-TO                PIC 9(3).
+           05  RMIAUDS0-DATE-FROM-X.
+               88  RMIAUDS0-DATE-FROM-X-BLANK    VALUE 'SPACE' ZERO.
+               10  RMIAUDS0-DATE-FROM            PIC 9(8).
+           05  RMIAUDS0-DATE-TO-X.
+               88  RMIAUDS0-DATE-TO-X-BLANK      VALUE 'SPACE' ZERO.
+               10  RMIAUDS0-DATE-TO              PIC 9(8).
+           05  RMIAUDS0-RN-PENDING               PIC X.
+           05  RMIAUDS0-RN-NO-PENDING            PIC X.
+           05  RMIAUDS0-MAKES                    PIC X(48).
+           05  RMIAUDS0-OPERATIONS               PIC X(130).
+           05  RMIAUDS0-BILL-CUSTOMER            PIC X.
+           05  RMIAUDS0-BILL-WARRANTY            PIC X.
+           05  RMIAUDS0-BILL-INTERNAL            PIC X.
+           05  RMIAUDS0-ORIG-ADVISOR             PIC X(100).
+           05  RMIAUDS0-RET-ADVISOR              PIC X(100).
+           05  RMIAUDS0-TECHNICIANS              PIC X(100).
+
+      ******************************************************************
+      *    RMI Includes                                                *
+      ******************************************************************
+INCLUDE RMIPGMNM
+INCLUDE RMISECIT
+      ******************************************************************
+      *    INCLUDE NECESSARY ERA COMREGS.                              *
+      ******************************************************************
+INCLUDE SUBAJUST
+INCLUDE SUBIELST
+INCLUDE SUBALLOW
+INCLUDE SUBFETEC
+INCLUDE SUBDATED
+      ******************************************************************
+      *    ERA GUI Framework Includes                                  *
+      ******************************************************************
+INCLUDE PWRERROR
+INCLUDE PWRCNTRL
+INCLUDE PWRUTILS
+INCLUDE PWREVENT
+      ******************************************************************
+      *    RMIEVENT is a redefine of PWREVENT Variable Area            *
+      ******************************************************************
+INCLUDE RMIEVENT
+      ******************************************************************
+      *    Pick Subroutines.                                           *
+      ******************************************************************
+INCLUDE SVCTSDP0
+      ******************************************************************
+      *    Search Subroutines                                          *
+      ******************************************************************
+INCLUDE SVCCOMP0
+
+       01  FILLER.
+         02  FILLER PIC X(16) VALUE '****RMIFLBAR****'.
+         02  RMIFLBAR-COMREG.
+INCLUDE RMIFLBAR
+
+       LINKAGE SECTION.
+
+INCLUDE PWRCCORE
+INCLUDE PWRMAIN0
+INCLUDE RMIRBASE
+INCLUDE RMIAUDS9
+
+       PROCEDURE DIVISION USING
+           CENTRAL-CORE-TABLE
+           STATION-ENTRY
+           TERMINAL-LIST-ENTRY
+           PWRMAIN0-COMREG.
+
+       PROGRAM-ENTRY SECTION.
+
+      ******************************************************************
+      *                                                                *
+      *    PROGRAM-ENTRY SECTION                                       *
+      *                                                                *
+      ******************************************************************
+      *    This section Initializes and obtains the records            *
+      ******************************************************************
+
+       PROGRAM-ENTRY-INITIALIZE.
+      ******************************************************************
+      *    Initialize and/or update all variables essential to the     *
+      *    setup of the program.                                       *
+      ******************************************************************
+           MOVE SPACE TO PWRMAIN0-PROCESS-COMBOBOX-FLAG.
+           MOVE SPACE TO PWRMAIN0-ACTION-ERROR-FLAG.
+           MOVE WS-PROGRAM-NAME TO PWRERROR-PROGRAM.
+      ******************************************************************
+      *    Get addressability to records.                              *
+      ******************************************************************
+           PERFORM GET-RECORDS.
+
+       PROGRAM-ENTRY-DONE.
+           GO TO SCREEN-PROCESS.
+
+       SCREEN-PROCESS SECTION.
+
+      ******************************************************************
+      *                                                                *
+      *    SCREEN-PROCESS SECTION.                                     *
+      *                                                                *
+      ******************************************************************
+      *    This section processes the action flag set by the MAIN0     *
+      *    control program.                                            *
+      ******************************************************************
+
+       SCREEN-PROCESS-BEGIN.
+      ******************************************************************
+      *    Build screen and display data.                              *
+      ******************************************************************
+           IF PWRMAIN0-ACTION-BUILD
+               GO TO BUILD-SCREEN.
+      ******************************************************************
+      *    Clear the screen.                                           *
+      ******************************************************************
+           IF PWRMAIN0-ACTION-CLEAR
+               GO TO CLEAR-SCREEN.
+      ******************************************************************
+      *    Display the data on the screen.  Occurs when a new record   *
+      *    has been read.                                              *
+      ******************************************************************
+           IF PWRMAIN0-ACTION-DISPLAY
+               PERFORM DISPLAY-MOVES
+               PERFORM SET-ATTR
+               GO TO SCREEN-PROCESS-DONE.
+      ******************************************************************
+      *    Give focus to a field in this screen - CTRL+TAB was pressed *
+      *    by the user to switch between windows.                      *
+      ******************************************************************
+           IF PWRMAIN0-ACTION-SET-FOCUS
+               PERFORM SET-FOCUS
+               PERFORM BUILD-FUNCTION-LINES
+               GO TO SCREEN-PROCESS-DONE.
+      ******************************************************************
+      *    If the field should be edited, validate the field and then  *
+      *    go to PROCESS-FIELD to edit the field.                      *
+      ******************************************************************
+           IF PWRMAIN0-ACTION-EDIT-FIELD
+               OR PWRMAIN0-ACTION-EDIT-ALL
+               PERFORM PROCESS-FIELD
+               GO TO SCREEN-PROCESS-DONE.
+      ******************************************************************
+      *    Branch down to process the event for this subscreen.        *
+      ******************************************************************
+           IF PWRMAIN0-ACTION-EVENT
+               GO TO EVENT-PROCESS.
+
+       SCREEN-PROCESS-DONE.
+           GO TO PROGRAM-GOBACK.
+
+       BUILD-SCREEN SECTION.
+
+      ******************************************************************
+      *                                                                *
+      *    BUILD-SCREEN SECTION.                                       *
+      *                                                                *
+      ******************************************************************
+      *    This Section builds the screen.                             *
+      ******************************************************************
+
+       BUILD-SCREEN-BEGIN.
+      ******************************************************************
+      *    Save screen name off to memory area.                        *
+      ******************************************************************
+           MOVE RMIAUDS0-SCREEN-NAME TO RMIRBASE-FILTER-SCREEN.
+      ******************************************************************
+      *    Build the screen.                                           *
+      ******************************************************************
+           CALL '*_BUILD_SCREEN' USING RMIAUDS0.
+      ******************************************************************
+      *    When the app report is initially opened the Run/Print       *
+      *    flag should be set.                                         *
+      ******************************************************************
+           MOVE 'Y' TO RMIRBASE-APP-RPT-RUN-PRNT-FLAG.
+      ******************************************************************
+      *    Display screen items and set focus to the home field.       *
+      *    NOTE : This is where we would load data for a saved         *
+      *    report.                                                     *
+      ******************************************************************
+           PERFORM DISPLAY-MOVES.
+           PERFORM SET-ATTR.
+           MOVE RMIAUDS0-SCREEN-NAME TO PWREVENT-SCREEN-NAME.
+           MOVE RMIAUDS0-HOME-FNUM TO PWREVENT-FIELD-NUMBER.
+           PERFORM SET-FOCUS.
+           PERFORM BUILD-FUNCTION-LINES.
+
+       BUILD-SCREEN-DONE.
+           GO TO PROGRAM-GOBACK.
+
+       EVENT-PROCESS SECTION.
+
+      ******************************************************************
+      *                                                                *
+      *    EVENT-PROCESS SECTION.                                      *
+      *                                                                *
+      ******************************************************************
+      *    This section handles special control events such as button  *
+      *    presses, listview events, treeview events, etc.             *
+      ******************************************************************
+
+       EVENT-PROCESS-BEGIN.
+      ******************************************************************
+      *    Call PWREVENT to retrieve event that occured on screen and  *
+      *    take appropriate action.                                    *
+      ******************************************************************
+           MOVE LOW-VALUES TO PWREVENT-COMREG.
+           MOVE PWREVENT-FUNCT-GET-EVENT-LIT TO PWREVENT-FUNCTION.
+           MOVE PWREVENT-CNTL-PROCESS-MAIN-LIT
+               TO PWREVENT-CNTL-PROCESS-FLAG.
+           CALL 'PWREVENT' USING PWREVENT-COMREG.
+      ******************************************************************
+      *    Process screen entry event.                                 *
+      ******************************************************************
+           IF PWREVENT-EVENT-SCREEN-ENTRY
+               PERFORM BUILD-FUNCTION-LINES.
+      ******************************************************************
+      *    Process app-defined events. These will be events            *
+      *    communicated from the lower pane through RMIRBASE.          *
+      ******************************************************************
+           IF PWREVENT-EVENT-APP-DEFINED
+               GO TO EVENT-PROCESS-APP-EVENT.
+      ******************************************************************
+      *    Standard combobox/lookup handling.                          *
+      ******************************************************************
+           IF PWREVENT-EVENT-COMBO-BOX
+               GO TO EVENT-PROCESS-COMBO-BOX.
+      ******************************************************************
+      *    Process hot key event.                                      *
+      ******************************************************************
+           IF PWREVENT-EVENT-HOT-KEY
+               GO TO EVENT-PROCESS-HOT-KEY.
+      ******************************************************************
+      *    Field value change event.                                   *
+      ******************************************************************
+           IF PWREVENT-EVENT-VALUE-CHANGE
+               PERFORM PROCESS-FIELD.
+           GO TO EVENT-PROCESS-DONE.
+
+       EVENT-PROCESS-APP-EVENT.
+      ******************************************************************
+      *    Detemine which event the filter screen initiated.           *
+      ******************************************************************
+           IF RMIEVENT-EVENT-RPT-TYPE-CLR-RL
+               GO TO EVENT-PROCESS-CLEAR.
+           IF RMIEVENT-EVENT-RPT-TYPE-RUN-RP
+               GO TO EVENT-PROCESS-RUN.
+           IF RMIEVENT-EVENT-RPT-TYPE-SAVE
+               GO TO EVENT-PROCESS-SAVE-REPORT.
+           IF RMIEVENT-EVENT-RPT-TYPE-LOAD
+               PERFORM LOAD-REPORT.
+           GO TO EVENT-PROCESS-DONE.
+
+       EVENT-PROCESS-COMBO-BOX.
+      ******************************************************************
+      *    Process Combo Box events.                                   *
+      ******************************************************************
+           MOVE 'Y' TO PWRMAIN0-PROCESS-COMBOBOX-FLAG.
+           PERFORM PROCESS-FIELD.
+           GO TO EVENT-PROCESS-DONE.
+
+       EVENT-PROCESS-HOT-KEY.
+      ******************************************************************
+      *    Branch based on selected F-key.                             *
+      ******************************************************************
+           IF PWREVENT-KEY-NORMAL-F2
+               MOVE 'Y' TO PWRMAIN0-PROCESS-COMBOBOX-FLAG
+               PERFORM PROCESS-FIELD.
+           IF PWREVENT-KEY-NORMAL-F6
+               GO TO EVENT-PROCESS-CLEAR.
+           IF PWREVENT-KEY-NORMAL-F7
+               GO TO EVENT-PROCESS-LOAD-REPORT.
+           IF PWREVENT-KEY-NORMAL-F8
+               GO TO EVENT-PROCESS-SAVE-REPORT.
+      ******************************************************************
+      *    If the user is specifically using the 'Run' function        *
+      *    ensure the Run/Print flag is cleared.                       *
+      ******************************************************************
+           IF PWREVENT-KEY-NORMAL-F10
+               MOVE SPACE TO RMIRBASE-APP-RPT-RUN-PRNT-FLAG
+               GO TO EVENT-PROCESS-RUN.
+           IF PWREVENT-KEY-NORMAL-F11
+               GO TO EVENT-PROCESS-PRINT.
+           GO TO EVENT-PROCESS-DONE.
+
+       EVENT-PROCESS-LOAD-REPORT.
+      ******************************************************************
+      *    Add an event to the SUB event stack for RMIRBASE. This      *
+      *    event will tell RMIRBASE to load a Saved Report.            *
+      ******************************************************************
+           MOVE LOW-VALUES TO PWREVENT-COMREG.
+           MOVE PWREVENT-FUNCT-ADD-EVENT-LIT TO PWREVENT-FUNCTION.
+           MOVE RMIRBASE-BASE-SCREEN TO PWREVENT-SCREEN-NAME.
+           MOVE RMIEVENT-EV-TYPE-LOAD-LIT TO RMIEVENT-EVENT-TYPE.
+           CALL 'PWREVENT' USING PWREVENT-COMREG.
+           GO TO EVENT-PROCESS-DONE.
+
+       EVENT-PROCESS-SAVE-REPORT.
+      ******************************************************************
+      *    Perform an EDIT-ALL on the criteria data.                   *
+      ******************************************************************
+           MOVE PWRMAIN0-ACTION-EDIT-ALL-LIT TO PWRMAIN0-ACTION-FLAG.
+           PERFORM PROCESS-FIELD.
+           IF WS-DATE-FROM-GREG-YES
+               IF RMIAUDS0-DATE-FROM-X NOT = ZERO
+               MOVE RMIAUDS0-DATE-FROM-FNUM TO PWRERROR-FLDNO
+               MOVE ERROR-1003-VARDATE-SAVES-ONLY TO PWRERROR-NUMBER
+               GO TO STANDARD-ERROR-EXIT.
+           IF RMIAUDS0-DATE-TO-X NUMERIC
+               IF RMIAUDS0-DATE-TO-X NOT = ZERO
+               MOVE RMIAUDS0-DATE-TO-FNUM TO PWRERROR-FLDNO
+               MOVE ERROR-1004-VARDATE-SAVES-ONLY TO PWRERROR-NUMBER
+               GO TO STANDARD-ERROR-EXIT.
+           GO TO EVENT-PROCESS-SAVE-REPORT-CONT.
+
+       EVENT-PROCESS-SAVE-REPORT-CONT.
+      ******************************************************************
+      *    Initialize the control block.                               *
+      ******************************************************************
+           MOVE SPACE TO RMIRBASE-CONTROL-BLOCK.
+      ******************************************************************
+      *    Copy the DBS Control Block into the RMIRBASE Control        *
+      *    Block to be used to save the report criteria to the         *
+      *    server.                                                     *
+      ******************************************************************
+           MOVE RMIAUDS9-CONTROL TO RMIRBASE-CONTROL.
+      ******************************************************************
+      *    Add an event to the SUB event stack for RMIRBASE. This      *
+      *    event will tell RMIRBASE to save the report criteria to     *
+      *    the server.                                                 *
+      ******************************************************************
+           MOVE LOW-VALUES TO PWREVENT-COMREG.
+           MOVE PWREVENT-FUNCT-ADD-EVENT-LIT TO PWREVENT-FUNCTION.
+           MOVE RMIRBASE-BASE-SCREEN TO PWREVENT-SCREEN-NAME.
+           MOVE RMIEVENT-EV-TYPE-SAVE-LIT TO RMIEVENT-EVENT-TYPE.
+           CALL 'PWREVENT' USING PWREVENT-COMREG.
+           GO TO EVENT-PROCESS-DONE.
+
+       EVENT-PROCESS-CLEAR.
+      ******************************************************************
+      *    Reset the criteria and set focus to home field.             *
+      ******************************************************************
+           MOVE SPACE TO RMIAUDS9-SEARCH-CRITERIA.
+           PERFORM DISPLAY-MOVES.
+           PERFORM SET-ATTR.
+           MOVE RMIAUDS0-HOME-FNUM TO PWREVENT-FIELD-NUMBER.
+           PERFORM SET-FOCUS.
+           PERFORM BUILD-FUNCTION-LINES.
+           GO TO EVENT-PROCESS-DONE.
+
+       EVENT-PROCESS-RUN.
+      ******************************************************************
+      *    Perform an EDIT-ALL on the criteria data.                   *
+      ******************************************************************
+           MOVE PWRMAIN0-ACTION-EDIT-ALL-LIT TO PWRMAIN0-ACTION-FLAG.
+           PERFORM PROCESS-FIELD.
+      ******************************************************************
+      *    Add an event to the SUB event stack for RMIAUDS1, this      *
+      *    will tell the results screen to search and display the      *
+      *    results with our entered filters.                           *
+      ******************************************************************
+           MOVE LOW-VALUES TO PWREVENT-COMREG.
+           MOVE PWREVENT-FUNCT-ADD-EVENT-LIT TO PWREVENT-FUNCTION.
+           MOVE RMIRBASE-RESULTS-SCREEN TO PWREVENT-SCREEN-NAME.
+           MOVE RMIEVENT-EV-TYPE-RUN-REPT-LIT TO RMIEVENT-EVENT-TYPE.
+           CALL 'PWREVENT' USING PWREVENT-COMREG.
+           GO TO EVENT-PROCESS-DONE.
+
+       EVENT-PROCESS-PRINT.
+      ******************************************************************
+      *    Add an event to the SUB event stack for The active filter   *
+      *    screen, this will tell the screen to begin the search       *
+      *    process.                                                    *
+      ******************************************************************
+           MOVE LOW-VALUES TO PWREVENT-COMREG.
+           MOVE PWREVENT-FUNCT-ADD-EVENT-LIT TO PWREVENT-FUNCTION.
+           MOVE RMIRBASE-BASE-SCREEN TO PWREVENT-SCREEN-NAME.
+           MOVE RMIEVENT-EV-TYPE-PRINT-LIT TO RMIEVENT-EVENT-TYPE.
+           CALL 'PWREVENT' USING PWREVENT-COMREG.
+           GO TO EVENT-PROCESS-DONE.
+
+       EVENT-PROCESS-DONE.
+           GO TO PROGRAM-GOBACK.
+
+       PROCESS-FIELD SECTION.
+
+      ******************************************************************
+      *                                                                *
+      *    PROCESS-FIELD SECTION.                                      *
+      *                                                                *
+      ******************************************************************
+      *    This section handles the edits for all input fields.  It    *
+      *    validates the field that was modified and processes any     *
+      *    field-specific edits that may exist.                        *
+      ******************************************************************
+
+       PROCESS-FIELD-BEGIN.
+      ******************************************************************
+      *    If the PWRMAIN0 action flag is set to EDIT-ALL, skip the    *
+      *    individual field edits and go to Exit Edits paragraph.      *
+      ******************************************************************
+           IF PWRMAIN0-ACTION-EDIT-ALL
+               GO TO PROCESS-FIELD-EDIT-ALL-BEGIN.
+      ******************************************************************
+      *    Validate the field entry.                                   *
+      ******************************************************************
+           MOVE LOW-VALUES TO PWREVENT-COMREG.
+           MOVE PWREVENT-FUNCT-VALIDATE-LIT TO PWREVENT-FUNCTION.
+           MOVE PWREVENT-CNTL-PROCESS-MAIN-LIT
+               TO PWREVENT-CNTL-PROCESS-FLAG.
+           CALL 'PWREVENT' USING PWREVENT-COMREG RMIAUDS0-SCREEN-COMREG.
+           IF NOT PWREVENT-VALIDATE-NO-ERROR
+               MOVE PWREVENT-FIELD-NUMBER TO PWRERROR-FLDNO
+               MOVE PWREVENT-VALIDATE-ERROR-NUM TO PWRERROR-NUMBER
+               MOVE 'SYSERR00' TO PWRERROR-PROGRAM-ALTERNATE
+               GO TO STANDARD-ERROR-EXIT.
+      ******************************************************************
+      *    If nothing changed then skip down edits.                    *
+      ******************************************************************
+           IF PWREVENT-FIELD-CHANGED-NO
+               IF NOT PWRMAIN0-PROCESS-COMBOBOX-YES
+               GO TO PROCESS-FIELD-NEXT-FIELD.
+
+       PROCESS-FIELD-EVENT-BRANCH.
+      ******************************************************************
+      *    Branch based on field that needs to be processed.           *
+      ******************************************************************
+           IF PWREVENT-FIELD-NUMBER = RMIAUDS0-DEPT-SERVICE-FNUM
+               GO TO PROCESS-DEPT-SERVICE.
+           IF PWREVENT-FIELD-NUMBER = RMIAUDS0-DEPT-BODY-FNUM
+               GO TO PROCESS-DEPT-BODY.
+           IF PWREVENT-FIELD-NUMBER = RMIAUDS0-DEPT-PDI-FNUM
+               GO TO PROCESS-DEPT-PDI.
+           IF PWREVENT-FIELD-NUMBER = RMIAUDS0-DEPT-ONE-STEP-FNUM
+               GO TO PROCESS-DEPT-ONE-STEP.
+           IF PWREVENT-FIELD-NUMBER = RMIAUDS0-ELAPSE-FROM-FNUM
+               GO TO PROCESS-ELAPSE-FROM.
+           IF PWREVENT-FIELD-NUMBER = RMIAUDS0-ELAPSE-TO-FNUM
+               GO TO PROCESS-ELAPSE-TO.
+           IF PWREVENT-FIELD-NUMBER = RMIAUDS0-DATE-FROM-FNUM
+               GO TO PROCESS-DATE-FROM.
+           IF PWREVENT-FIELD-NUMBER = RMIAUDS0-DATE-TO-FNUM
+               GO TO PROCESS-DATE-TO.
+           IF PWREVENT-FIELD-NUMBER = RMIAUDS0-RN-PENDING-FNUM
+               GO TO PROCESS-RN-PENDING.
+           IF PWREVENT-FIELD-NUMBER = RMIAUDS0-RN-NO-PENDING-FNUM
+               GO TO PROCESS-RN-NO-PENDING.
+           IF PWREVENT-FIELD-NUMBER = RMIAUDS0-MAKES-FNUM
+               GO TO PROCESS-MAKES.
+           IF PWREVENT-FIELD-NUMBER = RMIAUDS0-OPERATIONS-FNUM
+               GO TO PROCESS-OPERATIONS.
+           IF PWREVENT-FIELD-NUMBER = RMIAUDS0-BILL-CUSTOMER-FNUM
+               GO TO PROCESS-BILL-CUSTOMER.
+           IF PWREVENT-FIELD-NUMBER = RMIAUDS0-BILL-WARRANTY-FNUM
+               GO TO PROCESS-BILL-WARRANTY.
+           IF PWREVENT-FIELD-NUMBER = RMIAUDS0-BILL-INTERNAL-FNUM
+               GO TO PROCESS-BILL-INTERNAL.
+           IF PWREVENT-FIELD-NUMBER = RMIAUDS0-ORIG-ADVISOR-FNUM
+               GO TO PROCESS-ORIG-ADVISOR.
+           IF PWREVENT-FIELD-NUMBER = RMIAUDS0-RET-ADVISOR-FNUM
+               GO TO PROCESS-RET-ADVISOR.
+           IF PWREVENT-FIELD-NUMBER = RMIAUDS0-TECHNICIANS-FNUM
+               GO TO PROCESS-TECHNICIANS.
+
+       PROCESS-FIELD-EDIT-ALL-BEGIN.
+      ******************************************************************
+      *    This is the go to paragraph for editing all fields.  All    *
+      *    individual field edit paragraphs should be added after this *
+      *    paragraph.                                                  *
+      ******************************************************************
+           MOVE LOW-VALUES TO PWREVENT-FIELD-ALL-SPACE-FLAG.
+           MOVE SPACE TO PWREVENT-FIELD-CHANGED-FLAG.
+
+       PROCESS-DEPT-SERVICE.
+      ******************************************************************
+      *    Process the DEPT-SERVICE field.                             *
+      ******************************************************************
+           MOVE RMIAUDS0-DEPT-SERVICE-FNUM TO PWRERROR-FLDNO.
+           MOVE RMIAUDS0-DEPT-SERVICE TO RMIAUDS9-REQ-DEPT-S.
+
+       PROCESS-DEPT-SERVICE-DONE.
+           IF NOT PWRMAIN0-ACTION-EDIT-ALL
+               GO TO PROCESS-FIELD-CONT.
+
+       PROCESS-DEPT-BODY.
+      ******************************************************************
+      *    Process the DEPT-BODY field.                                *
+      ******************************************************************
+           MOVE RMIAUDS0-DEPT-BODY-FNUM TO PWRERROR-FLDNO.
+           MOVE RMIAUDS0-DEPT-BODY TO RMIAUDS9-REQ-DEPT-B.
+
+       PROCESS-DEPT-BODY-DONE.
+           IF NOT PWRMAIN0-ACTION-EDIT-ALL
+               GO TO PROCESS-FIELD-CONT.
+
+       PROCESS-DEPT-PDI.
+      ******************************************************************
+      *    Process the DEPT-PDI field.                                 *
+      ******************************************************************
+           MOVE RMIAUDS0-DEPT-PDI-FNUM TO PWRERROR-FLDNO.
+           MOVE RMIAUDS0-DEPT-PDI TO RMIAUDS9-REQ-DEPT-P.
+           
+       PROCESS-DEPT-PDI-DONE.
+           IF NOT PWRMAIN0-ACTION-EDIT-ALL
+               GO TO PROCESS-FIELD-CONT.
+
+       PROCESS-DEPT-ONE-STEP.
+      ******************************************************************
+      *    Process the DEPT-ONE-STEP field.                            *
+      ******************************************************************
+           MOVE RMIAUDS0-DEPT-ONE-STEP-FNUM TO PWRERROR-FLDNO.
+           MOVE RMIAUDS0-DEPT-ONE-STEP TO RMIAUDS9-REQ-DEPT-Q.
+           
+       PROCESS-DEPT-ONE-STEP-DONE.
+           IF NOT PWRMAIN0-ACTION-EDIT-ALL
+               GO TO PROCESS-FIELD-CONT.
+
+       PROCESS-ELAPSE-FROM.
+      ******************************************************************
+      *    Process the ELAPSE-FROM field.                              *
+      ******************************************************************
+           MOVE RMIAUDS0-ELAPSE-FROM-FNUM TO PWRERROR-FLDNO.
+
+       PROCESS-ELAPSE-FROM-DONE.
+           MOVE RMIAUDS0-ELAPSE-FROM TO RMIAUDS9-REQ-ELAPSE-FROM.
+           IF NOT PWRMAIN0-ACTION-EDIT-ALL
+               GO TO PROCESS-FIELD-CONT.
+
+       PROCESS-ELAPSE-TO.
+      ******************************************************************
+      *    Process the ELAPSE-to field.                                *
+      ******************************************************************
+           MOVE RMIAUDS0-ELAPSE-TO-FNUM TO PWRERROR-FLDNO.
+
+       PROCESS-ELAPSE-TO-DONE.
+           MOVE RMIAUDS0-ELAPSE-TO TO RMIAUDS9-REQ-ELAPSE-TO.
+           IF NOT PWRMAIN0-ACTION-EDIT-ALL
+               GO TO PROCESS-FIELD-CONT.
+
+       PROCESS-DATE-FROM.
+      ******************************************************************
+      *    Process Date From. Initialize the comreg for reading the    *
+      *    record.                                                     *
+      ******************************************************************
+           MOVE SVCTSDP0-CMD-READ-LIT TO SVCTSDP0-COMMAND.
+      ******************************************************************
+      *    Call SVCTSDP0 to obtain the last purge date and invoice     *
+      *    days.                                                       *
+      ******************************************************************
+           MOVE LOW-VALUES TO PWRUTILS-COMREG.
+           MOVE SPACE TO WS-DATE-FROM-GREG-FLAG.
+           MOVE PWRUTILS-FUNC-CALL-PICK-LIT TO PWRUTILS-FUNCTION.
+           MOVE SVCTSDP0-PICK-DBS-LIT TO PWRUTILS-CPICK-PROGRAM.
+           MOVE LENGTH OF SVCTSDP0-CONTROL TO PWRUTILS-CPICK-SIZE-CALL.
+           MOVE LENGTH OF SVCTSDP0-COMREG TO PWRUTILS-CPICK-SIZE-RETURN.
+           CALL 'PWRUTILS' USING PWRUTILS-COMREG SVCTSDP0-COMREG.
+INCLUDE PWRUTLER
+           MOVE RMIAUDS0-DATE-FROM-FNUM TO PWRERROR-FLDNO.
+           MOVE SVCTSDP0-DATE-LAST-RUN-C TO WS-DATE-LAST-RUN.
+           MOVE SVCTSDP0-INVCE-DAYS-C TO WS-INVCE-DAYS.
+      ******************************************************************
+      *    Format the Passed back date fields from RMIAUDS9.           *
+      ******************************************************************
+           MOVE LOW-VALUES TO SUBAJUST-COMREG.
+           MOVE SUBAJUST-FLD-TYP-NUMERIC TO SUBAJUST-FLD-TYP.
+           MOVE 'Y' TO SUBAJUST-KEEP-SPACES.
+           MOVE 'N' TO SUBAJUST-STRIP-ZEROS.
+           MOVE LENGTH OF WS-INVCE-DAYS TO SUBAJUST-LENGTH-RIGHT.
+           CALL 'SUBAJUST' USING SUBAJUST-COMREG WS-INVCE-DAYS.
+           IF RMIAUDS0-DATE-FROM-X NUMERIC
+               MOVE RMIAUDS0-DATE-FROM-X TO WS-DATE-FROM
+               MOVE 'Y' TO WS-DATE-FROM-GREG-FLAG
+               GO TO PROCESS-DATE-FROM-DONE.
+           MOVE LOW-VALUES TO SUBDATED-COMREG.
+           MOVE RMIAUDS0-DATE-FROM-X TO SUBDATED-GREG-NOSEP.
+           CALL 'SUBDATED' USING SUBDATED-COMREG.
+           MOVE SUBDATED-FIXED-DATE TO WS-DATE-FROM.
+           
+       PROCESS-DATE-FROM-DONE.
+      ******************************************************************
+      *    Reformat the Date From to a fixed date                      *
+      ******************************************************************
+           MOVE LOW-VALUES TO SUBDATED-COMREG.
+           MOVE WS-DATE-LAST-MM TO SUBDATED-GREG-USA-MM.
+           MOVE WS-DATE-LAST-DD TO SUBDATED-GREG-USA-DD.
+           MOVE WS-DATE-LAST-YY TO SUBDATED-GREG-USA-YY.
+           CALL 'SUBDATED' USING SUBDATED-COMREG.
+           MOVE SUBDATED-FIXED-DATE TO WS-DATE-LAST-NUM.
+           COMPUTE WS-LAST-DATE-NEEDED =
+               WS-INVCE-DAYS-NUM -
+               WS-DATE-LAST-NUM.
+           IF WS-DATE-FROM < WS-LAST-DATE-NEEDED
+               MOVE LOW-VALUES TO SUBDATED-COMREG
+               MOVE WS-LAST-DATE-NEEDED TO SUBDATED-FIXED-DATE
+               CALL 'SUBDATED' USING SUBDATED-COMREG
+               MOVE SUBDATED-GREG-SEP TO PWRERROR-PARM1
+               MOVE ERROR-1002-INVALID-DATE-FROM TO PWRERROR-NUMBER
+               GO TO STANDARD-ERROR-EXIT.
+           MOVE RMIAUDS0-DATE-FROM-X TO RMIAUDS9-REQ-DATE-FROM.
+           IF NOT PWRMAIN0-ACTION-EDIT-ALL
+               GO TO PROCESS-FIELD-CONT.
+
+       PROCESS-DATE-TO.
+      ******************************************************************
+      *    Process Date To.                                            *
+      ******************************************************************
+           MOVE RMIAUDS0-DATE-TO-FNUM TO PWRERROR-FLDNO.
+
+       PROCESS-DATE-TO-DONE.
+           MOVE RMIAUDS0-DATE-TO-X TO RMIAUDS9-REQ-DATE-TO.
+           MOVE RMIAUDS0-DATE-TO-X TO WS-DATE-TO.
+           IF NOT PWRMAIN0-ACTION-EDIT-ALL
+               GO TO PROCESS-FIELD-CONT.
+
+       PROCESS-RN-PENDING.
+      ******************************************************************
+      *    Process the RN-PENDING field.                               *
+      ******************************************************************
+           MOVE RMIAUDS0-RN-PENDING-FNUM TO PWRERROR-FLDNO.
+           MOVE RMIAUDS0-RN-PENDING TO RMIAUDS9-REQ-RN-PEND.
+
+       PROCESS-RN-PENDING-DONE.
+           IF NOT PWRMAIN0-ACTION-EDIT-ALL
+               GO TO PROCESS-FIELD-CONT.
+
+       PROCESS-RN-NO-PENDING.
+      ******************************************************************
+      *    Process the RN-NO-PENDING field.                            *
+      ******************************************************************
+           MOVE RMIAUDS0-RN-NO-PENDING-FNUM TO PWRERROR-FLDNO.
+           MOVE RMIAUDS0-RN-NO-PENDING TO RMIAUDS9-REQ-RN-NO-PEND.
+
+       PROCESS-RN-NO-PENDING-DONE.
+           IF NOT PWRMAIN0-ACTION-EDIT-ALL
+               GO TO PROCESS-FIELD-CONT.
+
+       PROCESS-MAKES.
+      ******************************************************************
+      *    Process the MAKES field.                                    *
+      ******************************************************************
+           MOVE RMIAUDS0-MAKES-FNUM TO PWRERROR-FLDNO.
+           IF RMIAUDS0-MAKES = SPACE
+               IF NOT PWRMAIN0-PROCESS-COMBOBOX-YES
+               MOVE SPACE TO WS-MAKES-TABLE
+               GO TO PROCESS-MAKES-DONE.
+           MOVE LOW-VALUES TO SUBIELST-COMREG.
+           MOVE PWREVENT-FIELD-CHANGED-FLAG
+               TO SUBIELST-FIELD-CHANGED-FLAG.
+           MOVE SUBIELST-FUNC-INPUT-SCRN-LIT TO SUBIELST-FUNCTION.
+           MOVE WS-MAKES-LIT TO SUBIELST-INPUT-SCRN-TITLE.
+           MOVE '+' TO SUBIELST-I-E-FLAG.
+           MOVE 'Y' TO SUBIELST-DISABLE-I-E-FLAG.
+           MOVE RMIAUDS0-SCREEN-NAME TO SUBIELST-EXP-SCREEN-NAME.
+           MOVE RMIAUDS0-MAKES-FNUM TO SUBIELST-EXP-FIELD-NUMBER.
+           MOVE LENGTH OF RMIAUDS0-MAKES TO SUBIELST-EXP-FIELD-SIZE.
+           MOVE +10 TO SUBIELST-ITEM-COUNT.
+           MOVE +3 TO SUBIELST-ITEM-LENGTH.
+           MOVE +3 TO SUBIELST-FIELD-LENGTH.
+           MOVE +3 TO SUBIELST-FIELD-SIZE-CHARS.
+           MOVE SUBIELST-CTRL-TXT-LIT TO SUBIELST-CTRL-TYPE.
+           MOVE SUBIELST-CASE-UPPER-LIT TO SUBIELST-TXT-CASE.
+           MOVE SUBIELST-DATA-TYPE-ALPHA-LIT TO SUBIELST-DATA-TYPE.
+           MOVE 'N' TO SUBIELST-ALLOW-DUPLICATES.
+           MOVE SPACE TO SUBIELST-SORT-ENTRIES.
+           MOVE 'Y' TO SUBIELST-LOOKUP.
+           MOVE 'Y' TO SUBIELST-LOOKUP-ICON.
+           MOVE 'SMK' TO SUBIELST-FE-SUB-ID.
+           MOVE 'Y' TO SUBIELST-FE-INIT.
+           MOVE 'Y' TO SUBIELST-FE-DISPLAY.
+           MOVE 'Y' TO SUBIELST-FE-RECORD.
+           MOVE 'Y' TO SUBIELST-FE-VALIDATE.
+           MOVE 'Y' TO SUBIELST-FE-VERIFY.
+      ******************************************************************
+      *    Set SUBIELST-FE-OPTION-1 to space in order to allow all     *
+      *    Makes to be returned in SUBLMAKE.                           *
+      ******************************************************************
+           MOVE SPACE TO SUBIELST-FE-OPTION-1.
+      ******************************************************************
+      *    If this is an edit and not a combobox event then branch.    *
+      ******************************************************************
+           IF NOT PWRMAIN0-PROCESS-COMBOBOX-YES
+               GO TO PROCESS-MAKES-EDIT.
+           CALL 'SUBIELST' USING
+               SUBIELST-COMREG
+               RMIAUDS0-MAKES
+               WS-MAKES-TABLE.
+           IF NOT SUBIELST-NO-ERROR
+               GO TO STANDARD-DB-ERROR-EXIT.
+           MOVE SUBIELST-FIELD-CHANGED-FLAG
+               TO PWREVENT-FIELD-CHANGED-FLAG.
+           IF PWREVENT-FIELD-CHANGED-YES
+               CALL '*_SET_FIELD' USING RMIAUDS0-MAKES
+               MOVE PWREVENT-KEY-NORMAL-TAB-LIT
+               TO PWREVENT-ADJUST-KEY-ATTR-INFO.
+           GO TO PROCESS-MAKES-DONE.
+
+       PROCESS-MAKES-EDIT.
+      ******************************************************************
+      *    Don't process the field unless it has been changed.         *
+      ******************************************************************
+           IF NOT PWREVENT-FIELD-CHANGED-YES
+               GO TO PROCESS-MAKES-DONE.
+      ******************************************************************
+      *    Call SUBIELST to edit the entered information.              *
+      ******************************************************************
+           MOVE SUBIELST-FUNC-EDIT-FIELD-LIT TO SUBIELST-FUNCTION.
+           CALL 'SUBIELST' USING
+               SUBIELST-COMREG
+               RMIAUDS0-MAKES
+               WS-MAKES-TABLE.
+           IF NOT SUBIELST-NO-ERROR
+               GO TO STANDARD-DB-ERROR-EXIT.
+           CALL '*_SET_FIELD' USING RMIAUDS0-MAKES.
+           MOVE PWREVENT-KEY-NORMAL-TAB-LIT TO
+               PWREVENT-ADJUST-KEY-ATTR-INFO.
+
+       PROCESS-MAKES-DONE.
+      ******************************************************************
+      *    Remove all imbedded spaces from the MAKES list.             *
+      ******************************************************************
+           MOVE RMIAUDS0-MAKES TO RMIAUDS9-REQ-MAKES.
+           MOVE LOW-VALUES TO SUBAJUST-COMREG.
+           MOVE LENGTH OF RMIAUDS9-REQ-MAKES TO SUBAJUST-LENGTH-LEFT.
+           MOVE SUBAJUST-FLD-TYP-EVERYTHING TO SUBAJUST-FLD-TYP.
+           MOVE 'N' TO SUBAJUST-KEEP-SPACES.
+           CALL 'SUBAJUST' USING SUBAJUST-COMREG RMIAUDS9-REQ-MAKES.
+           IF NOT PWRMAIN0-ACTION-EDIT-ALL
+               GO TO PROCESS-FIELD-CONT.
+
+       PROCESS-OPERATIONS.
+      ******************************************************************
+      *    Process the Operations Field                                *
+      ******************************************************************
+           MOVE RMIAUDS0-OPERATIONS-FNUM TO PWRERROR-FLDNO.
+           IF RMIAUDS0-OPERATIONS = SPACE
+               IF NOT PWRMAIN0-PROCESS-COMBOBOX-YES
+               MOVE SPACE TO WS-OPERATIONS-TABLE
+               GO TO PROCESS-OPERATIONS-DONE.
+           MOVE LOW-VALUES TO SUBIELST-COMREG.
+           MOVE PWREVENT-FIELD-CHANGED-FLAG
+               TO SUBIELST-FIELD-CHANGED-FLAG.
+           MOVE SUBIELST-FUNC-INPUT-SCRN-LIT TO SUBIELST-FUNCTION.
+           MOVE WS-OPERATIONS-LIT
+               TO SUBIELST-INPUT-SCRN-TITLE.
+           MOVE '+' TO SUBIELST-I-E-FLAG.
+           MOVE 'Y' TO SUBIELST-DISABLE-I-E-FLAG.
+           MOVE RMIAUDS0-SCREEN-NAME TO SUBIELST-EXP-SCREEN-NAME.
+           MOVE RMIAUDS0-OPERATIONS-FNUM TO SUBIELST-EXP-FIELD-NUMBER.
+           MOVE LENGTH OF RMIAUDS0-OPERATIONS
+               TO SUBIELST-EXP-FIELD-SIZE.
+           MOVE +8 TO SUBIELST-ITEM-COUNT.
+           MOVE +15 TO SUBIELST-ITEM-LENGTH.
+           MOVE +15 TO SUBIELST-FIELD-LENGTH.
+           MOVE +15 TO SUBIELST-FIELD-SIZE-CHARS.
+           MOVE SUBIELST-CTRL-TXT-LIT TO SUBIELST-CTRL-TYPE.
+           MOVE SUBIELST-CASE-UPPER-LIT TO SUBIELST-TXT-CASE.
+           MOVE SUBIELST-DATA-TYPE-ALPHA-LIT TO SUBIELST-DATA-TYPE.
+           MOVE 'N' TO SUBIELST-ALLOW-DUPLICATES.
+           MOVE SPACE TO SUBIELST-SORT-ENTRIES.
+           MOVE 'OPC' TO SUBIELST-FE-SUB-ID.
+           MOVE 'Y' TO SUBIELST-SPECIAL-CHAR.
+           MOVE 'Y' TO SUBIELST-FE-INIT.
+           MOVE 'Y' TO SUBIELST-FE-DISPLAY.
+           MOVE 'Y' TO SUBIELST-FE-RECORD.
+           MOVE 'Y' TO SUBIELST-FE-VALIDATE.
+           MOVE 'Y' TO SUBIELST-FE-VERIFY.
+      ******************************************************************
+      *    If this is an edit and not a combobox event then branch.    *
+      ******************************************************************
+           IF NOT PWRMAIN0-PROCESS-COMBOBOX-YES
+               GO TO PROCESS-OPERATIONS-EDIT.
+           CALL 'SUBIELST' USING
+               SUBIELST-COMREG
+               RMIAUDS0-OPERATIONS
+               WS-OPERATIONS-TABLE.
+           IF NOT SUBIELST-NO-ERROR
+               GO TO STANDARD-DB-ERROR-EXIT.
+           MOVE SUBIELST-FIELD-CHANGED-FLAG
+               TO PWREVENT-FIELD-CHANGED-FLAG.
+           IF PWREVENT-FIELD-CHANGED-YES
+               CALL '*_SET_FIELD' USING RMIAUDS0-OPERATIONS
+               MOVE PWREVENT-KEY-NORMAL-TAB-LIT
+               TO PWREVENT-ADJUST-KEY-ATTR-INFO.
+           GO TO PROCESS-OPERATIONS-DONE.
+
+       PROCESS-OPERATIONS-EDIT.
+      ******************************************************************
+      *    Don't process the field unless it has been changed.         *
+      ******************************************************************
+           IF NOT PWREVENT-FIELD-CHANGED-YES
+               GO TO PROCESS-OPERATIONS-DONE.
+      ******************************************************************
+      *    Call SUBIELST to edit the entered information.              *
+      ******************************************************************
+           MOVE SUBIELST-FUNC-EDIT-FIELD-LIT TO SUBIELST-FUNCTION.
+           CALL 'SUBIELST' USING
+               SUBIELST-COMREG
+               RMIAUDS0-OPERATIONS
+               WS-OPERATIONS-TABLE.
+           IF NOT SUBIELST-NO-ERROR
+               GO TO STANDARD-DB-ERROR-EXIT.
+           CALL '*_SET_FIELD' USING RMIAUDS0-OPERATIONS.
+           IF PWRMAIN0-PROCESS-COMBOBOX-YES
+               MOVE PWREVENT-KEY-NORMAL-TAB-LIT TO
+               PWREVENT-ADJUST-KEY-ATTR-INFO.
+
+       PROCESS-OPERATIONS-DONE.
+      ******************************************************************
+      *    Remove all imbedded spaces from the OPERATIONS list.        *
+      ******************************************************************
+           MOVE RMIAUDS0-OPERATIONS TO RMIAUDS9-REQ-OPERATIONS.
+           MOVE LOW-VALUES TO SUBAJUST-COMREG.
+           MOVE LENGTH OF RMIAUDS9-REQ-OPERATIONS
+               TO SUBAJUST-LENGTH-LEFT.
+           MOVE SUBAJUST-FLD-TYP-EVERYTHING TO SUBAJUST-FLD-TYP.
+           MOVE 'N' TO SUBAJUST-KEEP-SPACES.
+           CALL 'SUBAJUST' USING
+               SUBAJUST-COMREG
+               RMIAUDS9-REQ-OPERATIONS.
+           IF NOT PWRMAIN0-ACTION-EDIT-ALL
+               GO TO PROCESS-FIELD-CONT.
+
+       PROCESS-BILL-CUSTOMER.
+      ******************************************************************
+      *    Process the BILL-CUSTOMER field.                            *
+      ******************************************************************
+           MOVE RMIAUDS0-BILL-CUSTOMER-FNUM TO PWRERROR-FLDNO.
+           MOVE RMIAUDS0-BILL-CUSTOMER TO RMIAUDS9-REQ-BILL-C.
+           
+       PROCESS-BILL-CUSTOMER-DONE.
+           IF NOT PWRMAIN0-ACTION-EDIT-ALL
+               GO TO PROCESS-FIELD-CONT.
+
+       PROCESS-BILL-WARRANTY.
+      ******************************************************************
+      *    Process the BILL-WARRANTY field.                            *
+      ******************************************************************
+           MOVE RMIAUDS0-BILL-WARRANTY-FNUM TO PWRERROR-FLDNO.
+           MOVE RMIAUDS0-BILL-WARRANTY TO RMIAUDS9-REQ-BILL-W.
+
+       PROCESS-BILL-WARRANTY-DONE.
+           IF NOT PWRMAIN0-ACTION-EDIT-ALL
+               GO TO PROCESS-FIELD-CONT.
+
+       PROCESS-BILL-INTERNAL.
+      ******************************************************************
+      *    Process the BILL-INTERNAL field.                            *
+      ******************************************************************
+           MOVE RMIAUDS0-BILL-INTERNAL-FNUM TO PWRERROR-FLDNO.
+           MOVE RMIAUDS0-BILL-INTERNAL TO RMIAUDS9-REQ-BILL-I.
+
+       PROCESS-BILL-INTERNAL-DONE.
+           IF NOT PWRMAIN0-ACTION-EDIT-ALL
+               GO TO PROCESS-FIELD-CONT.
+
+       PROCESS-ORIG-ADVISOR.
+      ******************************************************************
+      *    Process the Original Advisor field                          *
+      ******************************************************************
+           MOVE RMIAUDS0-ORIG-ADVISOR-FNUM TO PWRERROR-FLDNO.
+           IF RMIAUDS0-ORIG-ADVISOR = SPACE
+               IF NOT PWRMAIN0-PROCESS-COMBOBOX-YES
+               MOVE SPACE TO WS-ORIG-ADVISOR-TABLE
+               GO TO PROCESS-ORIG-ADVISOR-DONE.
+           MOVE LOW-VALUES TO SUBIELST-COMREG.
+           MOVE PWREVENT-FIELD-CHANGED-FLAG
+               TO SUBIELST-FIELD-CHANGED-FLAG.
+           MOVE SUBIELST-FUNC-INPUT-SCRN-LIT TO SUBIELST-FUNCTION.
+           MOVE WS-ORIG-ADVISOR-LIT TO SUBIELST-INPUT-SCRN-TITLE.
+           MOVE SUBFETEC-REQ-TYPE-A-LIT TO SUBIELST-FE-OPTION-2.
+           MOVE '+' TO SUBIELST-I-E-FLAG.
+           MOVE 'Y' TO SUBIELST-DISABLE-I-E-FLAG.
+           MOVE RMIAUDS0-SCREEN-NAME TO SUBIELST-EXP-SCREEN-NAME.
+           MOVE RMIAUDS0-ORIG-ADVISOR-FNUM TO SUBIELST-EXP-FIELD-NUMBER.
+           MOVE LENGTH OF RMIAUDS0-ORIG-ADVISOR
+               TO SUBIELST-EXP-FIELD-SIZE.
+           MOVE +10 TO SUBIELST-ITEM-COUNT.
+           MOVE +8 TO SUBIELST-ITEM-LENGTH.
+           MOVE +8 TO SUBIELST-FIELD-LENGTH.
+           MOVE +8 TO SUBIELST-FIELD-SIZE-CHARS.
+           MOVE SUBIELST-CTRL-TXT-LIT TO SUBIELST-CTRL-TYPE.
+           MOVE SUBIELST-CASE-UPPER-LIT TO SUBIELST-TXT-CASE.
+           MOVE SUBIELST-DATA-TYPE-ALPHA-LIT TO SUBIELST-DATA-TYPE.
+           MOVE 'N' TO SUBIELST-ALLOW-DUPLICATES.
+           MOVE SPACE TO SUBIELST-SORT-ENTRIES.
+           MOVE SUBIELST-LOOKUP-YES-LIT TO SUBIELST-LOOKUP.
+           MOVE 'Y' TO SUBIELST-LOOKUP-ICON.
+           MOVE 'TEC' TO SUBIELST-FE-SUB-ID.
+           MOVE 'Y' TO SUBIELST-FE-INIT.
+           MOVE 'Y' TO SUBIELST-FE-DISPLAY.
+           MOVE 'Y' TO SUBIELST-FE-RECORD.
+           MOVE 'Y' TO SUBIELST-FE-VALIDATE.
+           MOVE 'Y' TO SUBIELST-FE-VERIFY.
+           MOVE SUBIELST-DATA-TYPE-ALPHA-LIT TO SUBIELST-FE-OPTION-1.
+      ******************************************************************
+      *    If this is an edit and not a combobox event then branch.    *
+      ******************************************************************
+           IF NOT PWRMAIN0-PROCESS-COMBOBOX-YES
+               GO TO PROCESS-ORIG-ADVISOR-EDIT.
+           CALL 'SUBIELST' USING
+               SUBIELST-COMREG
+               RMIAUDS0-ORIG-ADVISOR
+               WS-ORIG-ADVISOR-TABLE.
+           IF NOT SUBIELST-NO-ERROR
+               GO TO STANDARD-DB-ERROR-EXIT.
+           MOVE SUBIELST-FIELD-CHANGED-FLAG
+               TO PWREVENT-FIELD-CHANGED-FLAG.
+           IF PWREVENT-FIELD-CHANGED-YES
+               CALL '*_SET_FIELD' USING RMIAUDS0-ORIG-ADVISOR
+               MOVE PWREVENT-KEY-NORMAL-TAB-LIT
+               TO PWREVENT-ADJUST-KEY-ATTR-INFO.
+           GO TO PROCESS-ORIG-ADVISOR-DONE.
+
+       PROCESS-ORIG-ADVISOR-EDIT.
+      ******************************************************************
+      *    Don't process the field unless it has been changed.         *
+      ******************************************************************
+           IF NOT PWREVENT-FIELD-CHANGED-YES
+               GO TO PROCESS-ORIG-ADVISOR-DONE.
+      ******************************************************************
+      *    Call SUBIELST to edit the entered information.              *
+      ******************************************************************
+           MOVE SUBIELST-FUNC-EDIT-FIELD-LIT TO SUBIELST-FUNCTION.
+           CALL 'SUBIELST' USING
+               SUBIELST-COMREG
+               RMIAUDS0-ORIG-ADVISOR
+               WS-ORIG-ADVISOR-TABLE.
+           IF NOT SUBIELST-NO-ERROR
+               GO TO STANDARD-DB-ERROR-EXIT.
+           CALL '*_SET_FIELD' USING RMIAUDS0-ORIG-ADVISOR.
+           IF PWRMAIN0-PROCESS-COMBOBOX-YES
+               MOVE PWREVENT-KEY-NORMAL-TAB-LIT TO
+               PWREVENT-ADJUST-KEY-ATTR-INFO.
+
+       PROCESS-ORIG-ADVISOR-DONE.
+      ******************************************************************
+      *    Remove all imbedded spaces from the ORIG-ADVISOR list.      *
+      ******************************************************************
+           MOVE RMIAUDS0-ORIG-ADVISOR TO RMIAUDS9-REQ-ORIG-ADVISOR.
+           MOVE LOW-VALUES TO SUBAJUST-COMREG.
+           MOVE LENGTH OF RMIAUDS9-REQ-ORIG-ADVISOR
+               TO SUBAJUST-LENGTH-LEFT.
+           MOVE SUBAJUST-FLD-TYP-EVERYTHING TO SUBAJUST-FLD-TYP.
+           MOVE 'N' TO SUBAJUST-KEEP-SPACES.
+           CALL 'SUBAJUST' USING
+               SUBAJUST-COMREG
+               RMIAUDS9-REQ-ORIG-ADVISOR.
+           IF NOT PWRMAIN0-ACTION-EDIT-ALL
+               GO TO PROCESS-FIELD-CONT.
+
+       PROCESS-RET-ADVISOR.
+      ******************************************************************
+      *    Process the Returning Advisor field                         *
+      ******************************************************************
+           MOVE RMIAUDS0-RET-ADVISOR-FNUM TO PWRERROR-FLDNO.
+           IF RMIAUDS0-RET-ADVISOR = SPACE
+               IF NOT PWRMAIN0-PROCESS-COMBOBOX-YES
+               MOVE SPACE TO WS-RET-ADVISOR-TABLE
+               GO TO PROCESS-RET-ADVISOR-DONE.
+           MOVE LOW-VALUES TO SUBIELST-COMREG.
+           MOVE PWREVENT-FIELD-CHANGED-FLAG
+               TO SUBIELST-FIELD-CHANGED-FLAG.
+           MOVE SUBIELST-FUNC-INPUT-SCRN-LIT TO SUBIELST-FUNCTION.
+           MOVE WS-RET-ADVISOR-LIT TO SUBIELST-INPUT-SCRN-TITLE.
+           MOVE SUBFETEC-REQ-TYPE-A-LIT TO SUBIELST-FE-OPTION-2.
+           MOVE '+' TO SUBIELST-I-E-FLAG.
+           MOVE 'Y' TO SUBIELST-DISABLE-I-E-FLAG.
+           MOVE RMIAUDS0-SCREEN-NAME TO SUBIELST-EXP-SCREEN-NAME.
+           MOVE RMIAUDS0-RET-ADVISOR-FNUM TO SUBIELST-EXP-FIELD-NUMBER.
+           MOVE LENGTH OF RMIAUDS0-RET-ADVISOR
+               TO SUBIELST-EXP-FIELD-SIZE.
+           MOVE +10 TO SUBIELST-ITEM-COUNT.
+           MOVE +8 TO SUBIELST-ITEM-LENGTH.
+           MOVE +8 TO SUBIELST-FIELD-LENGTH.
+           MOVE +8 TO SUBIELST-FIELD-SIZE-CHARS.
+           MOVE SUBIELST-CTRL-TXT-LIT TO SUBIELST-CTRL-TYPE.
+           MOVE SUBIELST-CASE-UPPER-LIT TO SUBIELST-TXT-CASE.
+           MOVE SUBIELST-DATA-TYPE-ALPHA-LIT TO SUBIELST-DATA-TYPE.
+           MOVE 'N' TO SUBIELST-ALLOW-DUPLICATES.
+           MOVE SPACE TO SUBIELST-SORT-ENTRIES.
+           MOVE SUBIELST-LOOKUP-YES-LIT TO SUBIELST-LOOKUP.
+           MOVE 'Y' TO SUBIELST-LOOKUP-ICON.
+           MOVE 'TEC' TO SUBIELST-FE-SUB-ID.
+           MOVE 'Y' TO SUBIELST-FE-INIT.
+           MOVE 'Y' TO SUBIELST-FE-DISPLAY.
+           MOVE 'Y' TO SUBIELST-FE-RECORD.
+           MOVE 'Y' TO SUBIELST-FE-VALIDATE.
+           MOVE 'Y' TO SUBIELST-FE-VERIFY.
+           MOVE SUBIELST-DATA-TYPE-ALPHA-LIT TO SUBIELST-FE-OPTION-1.
+      ******************************************************************
+      *    If this is an edit and not a combobox event then branch.    *
+      ******************************************************************
+           IF NOT PWRMAIN0-PROCESS-COMBOBOX-YES
+               GO TO PROCESS-RET-ADVISOR-EDIT.
+           CALL 'SUBIELST' USING
+               SUBIELST-COMREG
+               RMIAUDS0-RET-ADVISOR
+               WS-RET-ADVISOR-TABLE.
+           IF NOT SUBIELST-NO-ERROR
+               GO TO STANDARD-DB-ERROR-EXIT.
+           MOVE SUBIELST-FIELD-CHANGED-FLAG
+               TO PWREVENT-FIELD-CHANGED-FLAG.
+           IF PWREVENT-FIELD-CHANGED-YES
+               CALL '*_SET_FIELD' USING RMIAUDS0-RET-ADVISOR
+               MOVE PWREVENT-KEY-NORMAL-TAB-LIT
+               TO PWREVENT-ADJUST-KEY-ATTR-INFO.
+           GO TO PROCESS-RET-ADVISOR-DONE.
+
+       PROCESS-RET-ADVISOR-EDIT.
+      ******************************************************************
+      *    Don't process the field unless it has been changed.         *
+      ******************************************************************
+           IF NOT PWREVENT-FIELD-CHANGED-YES
+               GO TO PROCESS-RET-ADVISOR-DONE.
+      ******************************************************************
+      *    Call SUBIELST to edit the entered information.              *
+      ******************************************************************
+           MOVE SUBIELST-FUNC-EDIT-FIELD-LIT TO SUBIELST-FUNCTION.
+           CALL 'SUBIELST' USING
+               SUBIELST-COMREG
+               RMIAUDS0-RET-ADVISOR
+               WS-RET-ADVISOR-TABLE.
+           IF NOT SUBIELST-NO-ERROR
+               GO TO STANDARD-DB-ERROR-EXIT.
+           CALL '*_SET_FIELD' USING RMIAUDS0-RET-ADVISOR.
+           IF PWRMAIN0-PROCESS-COMBOBOX-YES
+               MOVE PWREVENT-KEY-NORMAL-TAB-LIT TO
+               PWREVENT-ADJUST-KEY-ATTR-INFO.
+
+       PROCESS-RET-ADVISOR-DONE.
+      ******************************************************************
+      *    Remove all imbedded spaces from the RET-ADVISOR list.       *
+      ******************************************************************
+           MOVE RMIAUDS0-RET-ADVISOR TO RMIAUDS9-REQ-RET-ADVISOR.
+           MOVE LOW-VALUES TO SUBAJUST-COMREG.
+           MOVE LENGTH OF RMIAUDS9-REQ-RET-ADVISOR
+               TO SUBAJUST-LENGTH-LEFT.
+           MOVE SUBAJUST-FLD-TYP-EVERYTHING TO SUBAJUST-FLD-TYP.
+           MOVE 'N' TO SUBAJUST-KEEP-SPACES.
+           CALL 'SUBAJUST' USING
+               SUBAJUST-COMREG
+               RMIAUDS9-REQ-RET-ADVISOR.
+           IF NOT PWRMAIN0-ACTION-EDIT-ALL
+               GO TO PROCESS-FIELD-CONT.
+
+       PROCESS-TECHNICIANS.
+      ******************************************************************
+      *    Process the Technicians field.                              *
+      ******************************************************************
+           MOVE RMIAUDS0-TECHNICIANS-FNUM TO PWRERROR-FLDNO.
+           IF PWRMAIN0-ACTION-EDIT-ALL
+               GO TO PROCESS-TECHNICIANS-DONE.
+           IF RMIAUDS0-TECHNICIANS = SPACE
+               IF NOT PWRMAIN0-PROCESS-COMBOBOX-YES
+               MOVE SPACE TO WS-TECHNICIANS-TABLE
+               GO TO PROCESS-TECHNICIANS-DONE.
+      ******************************************************************
+      *    Setup and call SUBIELST to display Expert Mode modal.       *
+      ******************************************************************
+           MOVE LOW-VALUES TO SUBIELST-COMREG.
+           MOVE PWREVENT-FIELD-CHANGED-FLAG
+               TO SUBIELST-FIELD-CHANGED-FLAG.
+           MOVE SUBIELST-FUNC-INPUT-SCRN-LIT TO SUBIELST-FUNCTION.
+           MOVE WS-TECHNICIANS-LIT TO SUBIELST-INPUT-SCRN-TITLE.
+           MOVE '+' TO SUBIELST-I-E-FLAG.
+           MOVE 'Y' TO SUBIELST-DISABLE-I-E-FLAG.
+           MOVE RMIAUDS0-SCREEN-NAME TO SUBIELST-EXP-SCREEN-NAME.
+           MOVE RMIAUDS0-TECHNICIANS-FNUM TO SUBIELST-EXP-FIELD-NUMBER.
+           MOVE LENGTH OF RMIAUDS0-TECHNICIANS
+               TO SUBIELST-EXP-FIELD-SIZE.
+           MOVE +10 TO SUBIELST-ITEM-COUNT.
+           MOVE +8 TO SUBIELST-ITEM-LENGTH.
+           MOVE +8 TO SUBIELST-FIELD-LENGTH.
+           MOVE +8 TO SUBIELST-FIELD-SIZE-CHARS.
+           MOVE SUBIELST-CTRL-TXT-LIT TO SUBIELST-CTRL-TYPE.
+           MOVE SUBIELST-DATA-TYPE-ALPHA-LIT TO SUBIELST-DATA-TYPE.
+           MOVE 'N' TO SUBIELST-ALLOW-DUPLICATES.
+           MOVE SPACE TO SUBIELST-SORT-ENTRIES.
+           MOVE 'Y' TO SUBIELST-LOOKUP.
+           MOVE 'Y' TO SUBIELST-LOOKUP-ICON.
+           MOVE 'TEC' TO SUBIELST-FE-SUB-ID.
+           MOVE 'Y' TO SUBIELST-FE-INIT.
+           MOVE 'Y' TO SUBIELST-FE-DISPLAY.
+           MOVE 'Y' TO SUBIELST-FE-RECORD.
+           MOVE 'Y' TO SUBIELST-FE-VALIDATE.
+           MOVE 'Y' TO SUBIELST-FE-VERIFY.
+           MOVE SUBIELST-DATA-TYPE-ALPHA-LIT TO SUBIELST-FE-OPTION-1.
+           MOVE SUBFETEC-REQ-TYPE-TT-LIT TO SUBIELST-FE-OPTION-2.
+      ******************************************************************
+      *    If this is an edit and not a combobox event, then branch.   *
+      ******************************************************************
+           IF NOT PWRMAIN0-PROCESS-COMBOBOX-YES
+               GO TO PROCESS-TECHNICIANS-EDIT.
+           CALL 'SUBIELST' USING
+               SUBIELST-COMREG
+               RMIAUDS0-TECHNICIANS
+               WS-TECHNICIANS-TABLE.
+           IF NOT SUBIELST-NO-ERROR
+               GO TO STANDARD-DB-ERROR-EXIT.
+           MOVE SUBIELST-FIELD-CHANGED-FLAG
+               TO PWREVENT-FIELD-CHANGED-FLAG.
+           IF PWREVENT-FIELD-CHANGED-YES
+               CALL '*_SET_FIELD' USING RMIAUDS0-TECHNICIANS
+               MOVE PWREVENT-KEY-NORMAL-TAB-LIT
+               TO PWREVENT-ADJUST-KEY-ATTR-INFO.
+           GO TO PROCESS-TECHNICIANS-DONE.
+
+       PROCESS-TECHNICIANS-EDIT.
+      ******************************************************************
+      *    Don't process the field unless it has been changed.         *
+      ******************************************************************
+           IF NOT PWREVENT-FIELD-CHANGED-YES
+               GO TO PROCESS-TECHNICIANS-DONE.
+      ******************************************************************
+      *    Call SUBIELST to edit the entered information.  This will   *
+      *    validate techs that were entered into the field manually.   *
+      ******************************************************************
+           MOVE SUBIELST-FUNC-EDIT-FIELD-LIT TO SUBIELST-FUNCTION.
+           CALL 'SUBIELST' USING
+               SUBIELST-COMREG
+               RMIAUDS0-TECHNICIANS
+               WS-TECHNICIANS-TABLE.
+           IF NOT SUBIELST-NO-ERROR
+               GO TO STANDARD-DB-ERROR-EXIT.
+           CALL '*_SET_FIELD' USING RMIAUDS0-TECHNICIANS.
+
+       PROCESS-TECHNICIANS-DONE.
+      ******************************************************************
+      *    Remove all imbedded spaces from the TECHNICIANS list.       *
+      ******************************************************************
+           MOVE RMIAUDS0-TECHNICIANS TO RMIAUDS9-REQ-TECHNICIANS.
+           MOVE LOW-VALUES TO SUBAJUST-COMREG.
+           MOVE LENGTH OF RMIAUDS9-REQ-TECHNICIANS
+               TO SUBAJUST-LENGTH-LEFT.
+           MOVE SUBAJUST-FLD-TYP-EVERYTHING TO SUBAJUST-FLD-TYP.
+           MOVE 'N' TO SUBAJUST-KEEP-SPACES.
+           CALL 'SUBAJUST' USING
+               SUBAJUST-COMREG
+               RMIAUDS9-REQ-TECHNICIANS.
+           IF NOT PWRMAIN0-ACTION-EDIT-ALL
+               GO TO PROCESS-FIELD-CONT.
+
+       PROCESS-FIELD-EXIT-EDITS.
+      ******************************************************************
+      *    Perform any cross field edits.                              *
+      ******************************************************************
+           PERFORM CHECK-REQ-FIELDS.
+           PERFORM EXIT-EDITS.
+           GO TO PROCESS-FIELD-EXIT.
+
+       PROCESS-FIELD-CONT.
+      ******************************************************************
+      *    Set attributes                                              *
+      ******************************************************************
+           MOVE PWREVENT-FIELD-NUMBER TO PWRMAIN0-FIELD-NUMBER.
+           PERFORM SET-ATTR.
+
+       PROCESS-FIELD-NEXT-FIELD.
+      ******************************************************************
+      *    Set focus to the next field on the screen.                  *
+      ******************************************************************
+           MOVE PWREVENT-FUNCT-NEXT-FIELD-LIT TO PWREVENT-FUNCTION.
+           MOVE PWREVENT-CNTL-PROCESS-MAIN-LIT
+               TO PWREVENT-CNTL-PROCESS-FLAG.
+           CALL 'PWREVENT' USING PWREVENT-COMREG RMIAUDS0-SCREEN-COMREG.
+           PERFORM BUILD-FUNCTION-LINES.
+
+       PROCESS-FIELD-EXIT.
+           EXIT.
+
+       EXIT-EDITS SECTION.
+
+      ******************************************************************
+      *                                                                *
+      *    EXIT-EDITS Section.                                         *
+      *                                                                *
+      ******************************************************************
+      *    This section edits fields that need to be edited before     *
+      *    the program is run.                                         *
+      ******************************************************************
+
+       EXIT-EDITS-BEGIN.
+      ******************************************************************
+      *    Validate that the Date-To is not less than the Date-From.   *
+      ******************************************************************
+           IF RMIAUDS0-DATE-FROM-X NOT NUMERIC
+               MOVE LOW-VALUES TO SUBDATED-COMREG
+               MOVE RMIAUDS0-DATE-FROM TO SUBDATED-GREG-NOSEP
+               CALL 'SUBDATED' USING SUBDATED-COMREG
+               MOVE SUBDATED-FIXED-DATE TO WS-DATE-FROM.
+           IF RMIAUDS0-DATE-TO NOT NUMERIC
+               MOVE LOW-VALUES TO SUBDATED-COMREG
+               MOVE RMIAUDS0-DATE-TO TO SUBDATED-GREG-NOSEP
+               CALL 'SUBDATED' USING SUBDATED-COMREG
+               MOVE SUBDATED-FIXED-DATE TO WS-DATE-TO.
+           IF WS-DATE-FROM > WS-DATE-TO
+               IF WS-DATE-TO NOT = WS-DATE-FROM
+               IF WS-DATE-TO NOT = ZERO
+               MOVE ERROR-1001-INVALID-DATE-RANGE TO PWRERROR-NUMBER
+               MOVE RMIAUDS0-DATE-TO-FNUM TO PWRERROR-FLDNO
+               GO TO STANDARD-ERROR-EXIT.
+
+      ******************************************************************
+      *    Validate that the Days Elapsed beginning is greater than    *
+      *    the ending day.                                             *
+      ******************************************************************
+           IF RMIAUDS0-ELAPSE-FROM > RMIAUDS0-ELAPSE-TO
+               IF RMIAUDS0-ELAPSE-FROM NOT = ZERO
+               IF RMIAUDS0-ELAPSE-TO NOT = ZERO
+               MOVE ERROR-1005-INVALID-ELAPSED TO PWRERROR-NUMBER
+               MOVE RMIAUDS0-ELAPSE-FROM-FNUM TO PWRERROR-FLDNO
+               GO TO STANDARD-ERROR-EXIT.
+           
+       EXIT-EDITS-EXIT.
+           EXIT.
+
+       DISPLAY-MOVES SECTION.
+
+      ******************************************************************
+      *                                                                *
+      *    DISPLAY-MOVES SECTION.                                      *
+      *                                                                *
+      ******************************************************************
+      *    This section displays the data on the screen.               *
+      ******************************************************************
+
+       DISPLAY-MOVES-BEGIN.
+      ******************************************************************
+      *    Initialize the display area.                                *
+      ******************************************************************
+           MOVE SPACE TO RMIAUDS0-DISPLAY-AREA.
+           MOVE ZERO  TO RMIAUDS0-DATE-FROM.
+           MOVE ZERO  TO RMIAUDS0-DATE-TO.
+           MOVE ZERO  TO RMIAUDS0-ELAPSE-FROM.
+           MOVE ZERO  TO RMIAUDS0-ELAPSE-TO.
+
+       DISPLAY-MOVES-CALL.
+      ******************************************************************
+      *    Set screen must be called to get addressability to fields.  *
+      ******************************************************************
+           CALL '*_SET_SCREEN' USING RMIAUDS0.
+
+       DISPLAY-MOVES-EXIT.
+           EXIT.
+
+       CHECK-REQ-FIELDS SECTION.
+
+      ******************************************************************
+      *                                                                *
+      *    CHECK-REQ-FIELDS SECTION.                                   *
+      *                                                                *
+      ******************************************************************
+      *    This section checks to make sure that all required fields   *
+      *    are entered for this screen.                                *
+      ******************************************************************
+
+       CHECK-REQ-FIELDS-BEGIN.
+           MOVE ZERO TO WS-FIELD-PTR.
+
+       CHECK-REQ-FIELDS-LOOP.
+      ******************************************************************
+      *    Loop through the fields to find any required fields.        *
+      ******************************************************************
+           ADD +1 TO WS-FIELD-PTR.
+           IF WS-FIELD-PTR > RMIAUDS0-END-FNUM
+               GO TO CHECK-REQ-FIELDS-EXIT.
+           IF RMIAUDS0-ATTR-STAT-REQUIRED (WS-FIELD-PTR)
+               MOVE WS-FIELD-PTR TO PWRERROR-FLDNO
+               GO TO CHECK-REQ-FIELDS-ERROR.
+           GO TO CHECK-REQ-FIELDS-LOOP.
+
+       CHECK-REQ-FIELDS-ERROR.
+           MOVE ERROR-SYS-0002-REQD-GENERIC TO PWRERROR-NUMBER.
+           MOVE 'SYSERR00' TO PWRERROR-PROGRAM-ALTERNATE.
+           GO TO STANDARD-ERROR-EXIT.
+
+       CHECK-REQ-FIELDS-EXIT.
+           EXIT.
+
+       SET-ATTR SECTION.
+
+      ******************************************************************
+      *                                                                *
+      *    SET-ATTR SECTION.                                           *
+      *                                                                *
+      ******************************************************************
+      *    This section sets any special field attributes, such as     *
+      *    required or disabled.                                       *
+      ******************************************************************
+
+       SET-ATTR-BEGIN.
+      ******************************************************************
+      *    Reset the attributes here by calling PWRCNTRL with a RESET  *
+      *    function.                                                   *
+      ******************************************************************
+           MOVE LOW-VALUES TO PWRCNTRL-COMREG.
+           MOVE PWRCNTRL-FUNC-ATTR-RESET-LIT TO PWRCNTRL-FUNCTION.
+           MOVE RMIAUDS0-SCREEN-NAME TO PWRCNTRL-SCREEN-NAME.
+           MOVE 'N' TO PWRCNTRL-AR-APPLY-ATTR.
+           CALL 'PWRCNTRL' USING PWRCNTRL-COMREG.
+      ******************************************************************
+      *    Date From is always required.                               *
+      ******************************************************************
+           IF RMIAUDS0-DATE-FROM-X-BLANK
+               MOVE PWRCNTRL-ATTR-STAT-REQUIRED
+               TO RMIAUDS0-DATE-FROM-FSTA.
+      ******************************************************************
+      *    Date To is always required.                                 *
+      ******************************************************************
+           IF RMIAUDS0-DATE-TO-X-BLANK
+               MOVE PWRCNTRL-ATTR-STAT-REQUIRED
+               TO RMIAUDS0-DATE-TO-FSTA.
+
+       SET-ATTR-CALL.
+      ******************************************************************
+      *    Call PWRCNTRL to update the attributes.                     *
+      ******************************************************************
+           MOVE LOW-VALUES TO PWRCNTRL-COMREG.
+           MOVE PWRCNTRL-FUNC-ATTR-BUILD-LIT TO PWRCNTRL-FUNCTION.
+           MOVE RMIAUDS0-SCREEN-NAME TO PWRCNTRL-SCREEN-NAME.
+           CALL 'PWRCNTRL' USING PWRCNTRL-COMREG.
+
+       SET-ATTR-EXIT.
+           EXIT.
+
+       BUILD-FUNCTION-LINES SECTION.
+
+      ******************************************************************
+      *                                                                *
+      *    BUILD-FUNCTION-LINES SECTION.                               *
+      *                                                                *
+      ******************************************************************
+      *    This section updates the function keys displayed at the     *
+      *    bottom of the screen.                                       *
+      ******************************************************************
+
+       BUILD-FUNCTION-LINES-BEGIN.
+           MOVE SPACE TO RMIFLBAR-COMREG.
+           IF STE-APPLICATION = WS-RMI-LIT
+               MOVE RMIFLBAR-F3-CHANGE-AREA-LIT TO RMIFLBAR-F3-FLAG.
+           MOVE RMIFLBAR-F6-CLEAR-LIT TO RMIFLBAR-F6-FLAG.
+           MOVE RMIFLBAR-F7-LOAD-LIT TO RMIFLBAR-F7-FLAG.
+      ******************************************************************
+      *    Check security access for saving reports.                   *
+      ******************************************************************
+           MOVE LOW-VALUES TO SUBALLOW-COMREG.
+           MOVE SUBALLOW-FUNCT-CHK-ACCESS-LIT TO SUBALLOW-FUNCTION.
+           MOVE RMISECIT-GEN-RMI-SAVE-REPORT
+               TO SUBALLOW-SECURITY-ITEM.
+           MOVE WS-RMI-LIT TO SUBALLOW-APPLICATION.
+           MOVE 'N' TO SUBALLOW-GIVE-ERROR-FLAG.
+           CALL 'SUBALLOW' USING SUBALLOW-COMREG.
+           IF SUBALLOW-ACCESS-YES
+               MOVE RMIFLBAR-F8-SAVE-LIT TO RMIFLBAR-F8-FLAG.
+           MOVE RMIFLBAR-F10-RUN-LIT  TO RMIFLBAR-F10-FLAG.
+      ******************************************************************
+      *    If the Run/Print flag is set, F11 should display            *
+      *    'Run/Print'.                                                *
+      ******************************************************************
+           IF RMIRBASE-APP-RPT-RUN-PRNT-YES
+               MOVE RMIFLBAR-F11-RUN-PRINT-LIT TO RMIFLBAR-F11-FLAG.
+           IF RMIRBASE-RESULT-CNT NUMERIC
+               IF RMIRBASE-RESULT-CNT NOT = ZERO
+               MOVE RMIFLBAR-F11-PRINT-LIT TO RMIFLBAR-F11-FLAG.
+           GO TO BUILD-FUNCTION-LINES-CALL.
+
+       BUILD-FUNCTION-LINES-CALL.
+           CALL RMIPGMNM-RMIFLBAR USING RMIFLBAR-COMREG.
+
+       BUILD-FUNCTION-LINES-EXIT.
+           EXIT.
+
+       LOAD-REPORT SECTION.
+
+      ******************************************************************
+      *                                                                *
+      *    LOAD-REPORT SECTION.                                        *
+      *                                                                *
+      ******************************************************************
+      *    This section loads the saved report criteria data from the  *
+      *    RMIRBASE comreg into the screen fields.                     *
+      ******************************************************************
+
+       LOAD-REPORT-BEGIN.
+      ******************************************************************
+      *    First, we move the saved report criteria data from the      *
+      *    RMIRBASE comreg into the DBS comreg in case the user runs   *
+      *    the report upon opening.                                    *
+      ******************************************************************
+           MOVE RMIRBASE-CONTROL TO RMIAUDS9-CONTROL.
+      ******************************************************************
+      *    Then we move the data from the DBS comreg into the display  *
+      *    area and set the screen to display the saved report         *
+      *    criteria.                                                   *
+      ******************************************************************
+           MOVE RMIAUDS9-REQ-DEPT-S TO RMIAUDS0-DEPT-SERVICE.
+           MOVE RMIAUDS9-REQ-DEPT-B TO RMIAUDS0-DEPT-BODY.
+           MOVE RMIAUDS9-REQ-DEPT-P TO RMIAUDS0-DEPT-PDI.
+           MOVE RMIAUDS9-REQ-DEPT-Q TO RMIAUDS0-DEPT-ONE-STEP.
+           MOVE RMIAUDS9-REQ-ELAPSE-FROM TO RMIAUDS0-ELAPSE-FROM.
+           MOVE RMIAUDS9-REQ-ELAPSE-TO TO RMIAUDS0-ELAPSE-TO.
+           MOVE RMIAUDS9-REQ-DATE-FROM TO RMIAUDS0-DATE-FROM-X.
+           MOVE RMIAUDS9-REQ-DATE-TO TO RMIAUDS0-DATE-TO-X.
+           MOVE RMIAUDS9-REQ-RN-PEND TO RMIAUDS0-RN-PENDING.
+           MOVE RMIAUDS9-REQ-RN-NO-PEND TO RMIAUDS0-RN-NO-PENDING.
+           MOVE RMIAUDS9-REQ-MAKES TO RMIAUDS0-MAKES.
+           MOVE RMIAUDS9-REQ-OPERATIONS TO RMIAUDS0-OPERATIONS.
+           MOVE RMIAUDS9-REQ-BILL-C TO RMIAUDS0-BILL-CUSTOMER.
+           MOVE RMIAUDS9-REQ-BILL-W TO RMIAUDS0-BILL-WARRANTY.
+           MOVE RMIAUDS9-REQ-BILL-I TO RMIAUDS0-BILL-INTERNAL.
+           MOVE RMIAUDS9-REQ-ORIG-ADVISOR TO RMIAUDS0-ORIG-ADVISOR.
+           MOVE RMIAUDS9-REQ-RET-ADVISOR TO RMIAUDS0-RET-ADVISOR.
+           MOVE RMIAUDS9-REQ-TECHNICIANS TO RMIAUDS0-TECHNICIANS.
+           CALL '*_SET_SCREEN' USING RMIAUDS0.
+      ******************************************************************
+      *    Set attributes.                                             *
+      ******************************************************************
+           PERFORM SET-ATTR.
+           PERFORM SET-FOCUS.
+
+       LOAD-REPORT-EXIT.
+           EXIT.
+
+       GET-RECORDS SECTION.
+
+      ******************************************************************
+      *                                                                *
+      *    GET-RECORDS SECTION.                                        *
+      *                                                                *
+      ******************************************************************
+      *    Get the memory addresses of the records used in this        *
+      *    program.                                                    *
+      ******************************************************************
+
+       GET-RECORDS-BEGIN.
+           IF WS-GET-RECORDS-YES
+               GO TO GET-RECORDS-EXIT.
+      ******************************************************************
+      *    Get the address of the RO DBS comreg.                       *
+      ******************************************************************
+           MOVE LOW-VALUES TO PWRUTILS-COMREG.
+           MOVE PWRUTILS-MEM-ALLOC-GET TO PWRUTILS-FUNCTION.
+           MOVE RMIAUDS9-MEMORY-NAME-LIT TO PWRUTILS-MALLOC-NAME.
+           MOVE PWRUTILS-MEM-ALLOC-TYPE-LOCAL TO PWRUTILS-MALLOC-TYPE.
+           CALL 'PWRUTILS' USING PWRUTILS-COMREG.
+INCLUDE PWRUTLER
+           SET ADDRESS OF RMIAUDS9-COMREG TO PWRUTILS-MALLOC-POINTER.
+      ******************************************************************
+      *    Get the address of the "Memory Area".                       *
+      ******************************************************************
+           MOVE LOW-VALUES TO PWRUTILS-COMREG.
+           MOVE PWRUTILS-MEM-ALLOC-GET TO PWRUTILS-FUNCTION.
+           MOVE RMIRBASE-MEMORY-NAME-LIT TO PWRUTILS-MALLOC-NAME.
+           MOVE PWRUTILS-MEM-ALLOC-TYPE-LOCAL TO PWRUTILS-MALLOC-TYPE.
+           CALL 'PWRUTILS' USING PWRUTILS-COMREG.
+INCLUDE PWRUTLER
+           SET ADDRESS OF RMIRBASE-COMREG TO PWRUTILS-MALLOC-POINTER.
+      ******************************************************************
+      *    Call SVCCOMP0 to read the QUICK.SERVICE SERVCCOMPANY record.*
+      ******************************************************************
+           MOVE LOW-VALUES TO PWRUTILS-COMREG.
+           MOVE SPACE TO SVCCOMP0-COMREG.
+           MOVE SVCCOMP0-REC-QUICK-SERVICE-LIT
+               TO SVCCOMP0-KEY-RECORD-KEY.
+           MOVE SVCCOMP0-CMD-READ-LIT TO SVCCOMP0-COMMAND.
+           MOVE PWRUTILS-FUNC-CALL-PICK-LIT TO PWRUTILS-FUNCTION.
+           MOVE LENGTH OF SVCCOMP0-CONTROL TO PWRUTILS-CPICK-SIZE-CALL.
+           MOVE LENGTH OF SVCCOMP0-COMREG TO PWRUTILS-CPICK-SIZE-RETURN.
+           MOVE 'SVCCOMP0' TO PWRUTILS-CPICK-PROGRAM.
+           CALL 'PWRUTILS' USING PWRUTILS-COMREG SVCCOMP0-COMREG.
+INCLUDE PWRUTLER
+           MOVE 'Y' TO WS-GET-RECORDS-FLAG.
+
+       GET-RECORDS-EXIT.
+           EXIT.
+
+       SET-FOCUS SECTION.
+
+      ******************************************************************
+      *                                                                *
+      *    SET-FOCUS SECTION.                                          *
+      *                                                                *
+      ******************************************************************
+      *    This section handles setting focus back to this screen.     *
+      ******************************************************************
+
+       SET-FOCUS-BEGIN.
+      ******************************************************************
+      *    Call PWREVENT with a next field function to set focus to    *
+      *    this screen and move cursor to the last active field.       *
+      ******************************************************************
+           MOVE PWREVENT-FUNCT-NEXT-FIELD-LIT TO PWREVENT-FUNCTION.
+           MOVE PWREVENT-CNTL-PROCESS-MAIN-LIT
+               TO PWREVENT-CNTL-PROCESS-FLAG.
+           IF PWREVENT-SCREEN-NAME NOT = RMIAUDS0-SCREEN-NAME
+               MOVE RMIAUDS0-SCREEN-NAME TO PWREVENT-SCREEN-NAME
+               MOVE RMIAUDS0-HOME-FNUM TO PWREVENT-FIELD-NUMBER.
+           MOVE PWREVENT-SCREEN-NAME TO PWREVENT-NEXT-SCREEN-NAME.
+           MOVE PWREVENT-FIELD-NUMBER TO PWREVENT-NEXT-FIELD-NUMBER.
+           CALL 'PWREVENT' USING PWREVENT-COMREG RMIAUDS0-SCREEN-COMREG.
+
+       SET-FOCUS-EXIT.
+           EXIT.
+
+INCLUDE STDERREX
+
+       CLEAR-SCREEN SECTION.
+
+      ******************************************************************
+      *                                                                *
+      *    CLEAR-SCREEN SECTION.                                       *
+      *                                                                *
+      ******************************************************************
+      *    This section clears the screen.                             *
+      ******************************************************************
+
+       CLEAR-SCREEN-BEGIN.
+      ******************************************************************
+      *    If the screen is cleared ensure the Run/Print flag is       *
+      *    cleared so programs that haven't implemented Run/Print do   *
+      *    not trigger it with F11.                                    *
+      ******************************************************************
+           MOVE SPACE TO RMIRBASE-APP-RPT-RUN-PRNT-FLAG.
+      ******************************************************************
+      *    Clear the RMIAUDS0 window.                                  *
+      ******************************************************************
+           CALL '*_CLEAR_SCREEN' USING RMIAUDS0.
+
+       CLEAR-SCREEN-DONE.
+           GO TO PROGRAM-GOBACK.
+
+       PROGRAM-GOBACK SECTION.
+
+      ******************************************************************
+      *                                                                *
+      *    PROGRAM-GOBACK SECTION.                                     *
+      *                                                                *
+      ******************************************************************
+
+           GOBACK.
+Displaying RMIAUDS0 Screen.txt.
